@@ -3,8 +3,12 @@
 require_relative '../spec_helper'
 
 RSpec.describe 'Python getting started project' do
-  it 'builds successfully' do
-    Hatchet::Runner.new('python-getting-started').deploy do |app|
+  it 'getting started app has no relative paths' do
+    buildpacks = [
+      :default,
+      'https://github.com/sharpstone/force_absolute_paths_buildpack'
+    ]
+    Hatchet::Runner.new('python-getting-started', buildpacks: buildpacks).deploy do |app|
       # Deploy works
     end
   end

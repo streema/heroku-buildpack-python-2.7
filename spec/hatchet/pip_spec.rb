@@ -22,7 +22,7 @@ RSpec.describe 'Pip support' do
           remote: -----> No Python version was specified. Using the buildpack default: python-#{DEFAULT_PYTHON_VERSION}
           remote:        To use a different version, see: https://devcenter.heroku.com/articles/python-runtimes
           remote: -----> Installing python-#{DEFAULT_PYTHON_VERSION}
-          remote: -----> Installing pip 22.2.2, setuptools 63.4.3 and wheel 0.37.1
+          remote: -----> Installing pip 20.2.4, setuptools 47.1.1 and wheel 0.36.2
           remote: -----> Installing SQLite3
           remote: -----> Installing requirements with pip
           remote:        Collecting urllib3
@@ -38,7 +38,7 @@ RSpec.describe 'Pip support' do
           remote:        To use a different version, see: https://devcenter.heroku.com/articles/python-runtimes
           remote: -----> No change in requirements detected, installing from cache
           remote: -----> Using cached install of python-#{DEFAULT_PYTHON_VERSION}
-          remote: -----> Installing pip 22.2.2, setuptools 63.4.3 and wheel 0.37.1
+          remote: -----> Installing pip 20.2.4, setuptools 47.1.1 and wheel 0.36.2
           remote: -----> Installing SQLite3
           remote: -----> Installing requirements with pip
           remote: -----> Discovering process types
@@ -61,7 +61,7 @@ RSpec.describe 'Pip support' do
           remote:        To use a different version, see: https://devcenter.heroku.com/articles/python-runtimes
           remote: -----> Requirements file has been changed, clearing cached dependencies
           remote: -----> Installing python-#{DEFAULT_PYTHON_VERSION}
-          remote: -----> Installing pip 22.2.2, setuptools 63.4.3 and wheel 0.37.1
+          remote: -----> Installing pip 20.2.4, setuptools 47.1.1 and wheel 0.36.2
           remote: -----> Installing SQLite3
           remote: -----> Installing requirements with pip
           remote:        Collecting urllib3
@@ -81,153 +81,19 @@ RSpec.describe 'Pip support' do
     include_examples 'installs successfully using pip'
   end
 
-  context 'when requirements.txt contains Git requirements URLs' do
-    let(:app) { Hatchet::Runner.new('spec/fixtures/requirements_git') }
+  context 'when requirements.txt contains Git/Mercurial requirements URLs' do
+    let(:app) { Hatchet::Runner.new('spec/fixtures/requirements_vcs') }
 
     include_examples 'installs successfully using pip'
   end
 
   context 'when requirements.txt contains editable requirements' do
-    let(:buildpacks) { [:default, 'heroku-community/inline'] }
-    let(:app) { Hatchet::Runner.new('spec/fixtures/requirements_editable', buildpacks: buildpacks) }
+    let(:app) { Hatchet::Runner.new('spec/fixtures/requirements_editable') }
 
-    it 'rewrites .pth, .egg-link and finder paths correctly for hooks, later buildpacks, runtime and cached builds' do
-      app.deploy do |app|
-        expect(clean_output(app.output)).to match(Regexp.new(<<~REGEX, Regexp::MULTILINE))
-          remote:        Successfully installed gunicorn-20.1.0 local-package-pyproject-toml-0.0.1 local-package-setup-py-0.0.1
-          remote: -----> Running post-compile hook
-          remote: ==> .heroku/python/lib/python.*/site-packages/distutils-precedence.pth <==
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/easy-install.pth <==
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: /app/.heroku/src/gunicorn
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable___local_package_pyproject_toml_0_0_1_finder.py <==
-          remote: .*
-          remote: MAPPING = \{'local_package_pyproject_toml': '/tmp/build_.*/packages/local_package_pyproject_toml/local_package_pyproject_toml'\}
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable__.local_package_pyproject_toml-0.0.1.pth <==
-          remote: import __editable___.*
-          remote: ==> .heroku/python/lib/python.*/site-packages/gunicorn.egg-link <==
-          remote: /app/.heroku/src/gunicorn
-          remote: .
-          remote: ==> .heroku/python/lib/python.*/site-packages/local-package-setup-py.egg-link <==
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: .
-          remote: Running entrypoint for the pyproject.toml-based local package: Hello pyproject.toml!
-          remote: Running entrypoint for the setup.py-based local package: Hello setup.py!
-          remote: Running entrypoint for the VCS package: gunicorn \\(version 20.1.0\\)
-          remote: -----> Inline app detected
-          remote: ==> .heroku/python/lib/python.*/site-packages/distutils-precedence.pth <==
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/easy-install.pth <==
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: /app/.heroku/src/gunicorn
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable___local_package_pyproject_toml_0_0_1_finder.py <==
-          remote: .*
-          remote: MAPPING = \{'local_package_pyproject_toml': '/tmp/build_.*/packages/local_package_pyproject_toml/local_package_pyproject_toml'\}
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable__.local_package_pyproject_toml-0.0.1.pth <==
-          remote: import __editable___.*
-          remote: ==> .heroku/python/lib/python.*/site-packages/gunicorn.egg-link <==
-          remote: /app/.heroku/src/gunicorn
-          remote: .
-          remote: ==> .heroku/python/lib/python.*/site-packages/local-package-setup-py.egg-link <==
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: .
-          remote: Running entrypoint for the pyproject.toml-based local package: Hello pyproject.toml!
-          remote: Running entrypoint for the setup.py-based local package: Hello setup.py!
-          remote: Running entrypoint for the VCS package: gunicorn \\(version 20.1.0\\)
-        REGEX
-
-        # Test rewritten paths work at runtime.
-        expect(app.run('bin/test-entrypoints')).to match(Regexp.new(<<~REGEX, Regexp::MULTILINE))
-          ==> .heroku/python/lib/python.*/site-packages/distutils-precedence.pth <==
-          .*
-
-          ==> .heroku/python/lib/python.*/site-packages/easy-install.pth <==
-          /app/packages/local_package_setup_py
-          /app/.heroku/src/gunicorn
-
-          ==> .heroku/python/lib/python.*/site-packages/__editable___local_package_pyproject_toml_0_0_1_finder.py <==
-          .*
-          MAPPING = \{'local_package_pyproject_toml': '/app/packages/local_package_pyproject_toml/local_package_pyproject_toml'\}
-          .*
-
-          ==> .heroku/python/lib/python.*/site-packages/__editable__.local_package_pyproject_toml-0.0.1.pth <==
-          import __editable___.*
-          ==> .heroku/python/lib/python.*/site-packages/gunicorn.egg-link <==
-          /app/.heroku/src/gunicorn
-          .
-          ==> .heroku/python/lib/python.*/site-packages/local-package-setup-py.egg-link <==
-          /app/packages/local_package_setup_py
-          .
-          Running entrypoint for the pyproject.toml-based local package: Hello pyproject.toml!
-          Running entrypoint for the setup.py-based local package: Hello setup.py!
-          Running entrypoint for the VCS package: gunicorn \\(version 20.1.0\\)
-        REGEX
-
-        # Test that the cached .pth files work correctly.
-        app.commit!
-        app.push!
-        expect(clean_output(app.output)).to match(Regexp.new(<<~REGEX, Regexp::MULTILINE))
-          remote:        Successfully installed gunicorn-20.1.0 local-package-pyproject-toml-0.0.1 local-package-setup-py-0.0.1
-          remote: -----> Running post-compile hook
-          remote: ==> .heroku/python/lib/python.*/site-packages/distutils-precedence.pth <==
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/easy-install.pth <==
-          remote: /app/.heroku/src/gunicorn
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable___local_package_pyproject_toml_0_0_1_finder.py <==
-          remote: .*
-          remote: MAPPING = \{'local_package_pyproject_toml': '/tmp/build_.*/packages/local_package_pyproject_toml/local_package_pyproject_toml'\}
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable__.local_package_pyproject_toml-0.0.1.pth <==
-          remote: import __editable___.*
-          remote: ==> .heroku/python/lib/python.*/site-packages/gunicorn.egg-link <==
-          remote: /app/.heroku/src/gunicorn
-          remote: .
-          remote: ==> .heroku/python/lib/python.*/site-packages/local-package-setup-py.egg-link <==
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: .
-          remote: Running entrypoint for the pyproject.toml-based local package: Hello pyproject.toml!
-          remote: Running entrypoint for the setup.py-based local package: Hello setup.py!
-          remote: Running entrypoint for the VCS package: gunicorn \\(version 20.1.0\\)
-          remote: -----> Inline app detected
-          remote: ==> .heroku/python/lib/python.*/site-packages/distutils-precedence.pth <==
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/easy-install.pth <==
-          remote: /app/.heroku/src/gunicorn
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable___local_package_pyproject_toml_0_0_1_finder.py <==
-          remote: .*
-          remote: MAPPING = \{'local_package_pyproject_toml': '/tmp/build_.*/packages/local_package_pyproject_toml/local_package_pyproject_toml'\}
-          remote: .*
-          remote: 
-          remote: ==> .heroku/python/lib/python.*/site-packages/__editable__.local_package_pyproject_toml-0.0.1.pth <==
-          remote: import __editable___.*
-          remote: ==> .heroku/python/lib/python.*/site-packages/gunicorn.egg-link <==
-          remote: /app/.heroku/src/gunicorn
-          remote: .
-          remote: ==> .heroku/python/lib/python.*/site-packages/local-package-setup-py.egg-link <==
-          remote: /tmp/build_.*/packages/local_package_setup_py
-          remote: .
-          remote: Running entrypoint for the pyproject.toml-based local package: Hello pyproject.toml!
-          remote: Running entrypoint for the setup.py-based local package: Hello setup.py!
-          remote: Running entrypoint for the VCS package: gunicorn \\(version 20.1.0\\)
-        REGEX
-      end
-    end
+    # TODO: Make this test the path rewriting, and --src directory handling,
+    # and that the packages work during all of hooks, later buildpacks, runtime,
+    # and on subsequent builds (where the paths have to be migrated back).
+    include_examples 'installs successfully using pip'
   end
 
   context 'when there is only a setup.py' do
@@ -255,7 +121,7 @@ RSpec.describe 'Pip support' do
     end
   end
 
-  context 'when using pysqlite and Python 2', stacks: %w[heroku-18] do
+  context 'when using pysqlite and Python 2', stacks: %w[heroku-16 heroku-18] do
     # This is split out from the requirements_compiled fixture, since the original
     # pysqlite package (as opposed to the newer pysqlite3) only supports Python 2.
     # This test has to be skipped on newer stacks where Python 2 is not available.
@@ -274,6 +140,22 @@ RSpec.describe 'Pip support' do
           remote:  !     For GDAL, GEOS and PROJ support, use the Geo buildpack alongside the Python buildpack:
           remote:  !     https://github.com/heroku/heroku-geo-buildpack
           remote:  !       -- Much Love, Heroku.
+        OUTPUT
+      end
+    end
+  end
+
+  context 'when the legacy BUILD_WITH_GEO_LIBRARIES env var is set' do
+    let(:config) { { 'BUILD_WITH_GEO_LIBRARIES' => '' } }
+    let(:app) { Hatchet::Runner.new('spec/fixtures/python_version_unspecified', config: config, allow_failure: true) }
+
+    it 'aborts the build with an unsupported error message' do
+      app.deploy do |app|
+        expect(clean_output(app.output)).to include(<<~OUTPUT)
+          remote: -----> Python app detected
+          remote:  !     The Python buildpack's legacy BUILD_WITH_GEO_LIBRARIES functonality is
+          remote:  !     no longer supported:
+          remote:  !     https://devcenter.heroku.com/changelog-items/1947
         OUTPUT
       end
     end
