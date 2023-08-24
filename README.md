@@ -2,11 +2,13 @@
 
 # Heroku Buildpack: Python
 
-[![CircleCI](https://circleci.com/gh/heroku/heroku-buildpack-python.svg?style=svg)](https://circleci.com/gh/heroku/heroku-buildpack-python)
+[![Build Status](https://travis-ci.org/heroku/heroku-buildpack-python.svg?branch=master)](https://travis-ci.org/heroku/heroku-buildpack-python)
 
 This is the official [Heroku buildpack](https://devcenter.heroku.com/articles/buildpacks) for Python apps.
 
 Recommended web frameworks include **Django** and **Flask**, among others. The recommended webserver is **Gunicorn**. There are no restrictions around what software can be used (as long as it's pip-installable). Web processes must bind to `$PORT`, and only the HTTP protocol is permitted for incoming connections.
+
+Python packages with C dependencies that are not [available on the stack image](https://devcenter.heroku.com/articles/stack-packages) are generally not supported, unless `manylinux` wheels are provided by the package maintainers (common). For recommended solutions, check out [this article](https://devcenter.heroku.com/articles/python-c-deps) for more information.
 
 See it in Action
 ----------------
@@ -14,7 +16,7 @@ See it in Action
 $ ls
 my-application		requirements.txt	runtime.txt
 
-$ git push heroku main
+$ git push heroku master
 Counting objects: 4, done.
 Delta compression using up to 8 threads.
 Compressing objects: 100% (2/2), done.
@@ -24,7 +26,7 @@ remote: Compressing source files... done.
 remote: Building source:
 remote:
 remote: -----> Python app detected
-remote: -----> Installing python
+remote: -----> Installing python-3.7.4
 remote: -----> Installing pip
 remote: -----> Installing SQLite3
 remote: -----> Installing requirements with pip
@@ -42,10 +44,9 @@ A `requirements.txt` must be present at the root of your application's repositor
 
 To specify your python version, you also need a `runtime.txt` file - unless you are using the default Python runtime version.
 
-Current default Python Runtime: Python 3.9.5
+Current default Python Runtime: Python 3.6.9
 
-Alternatively, you can provide a `setup.py` file, or a `Pipfile`.
-Using `pipenv` will generate `runtime.txt` at build time if one of the field `python_version` or `python_full_version` is specified in the `requires` section of your `Pipfile`.
+Alternatively, you can provide a `setup.py` file, or a `Pipfile`. Using `Pipenv` will generate `runtime.txt` based on `python-version` at build time.
 
 Specify a Buildpack Version
 ---------------------------
@@ -60,8 +61,28 @@ Specify a Python Runtime
 
 Supported runtime options include:
 
-- `python-3.9.5`
-- `python-3.8.10`
-- `python-3.7.10`
-- `python-3.6.13`
-- `python-2.7.18`
+- `python-3.7.4`
+- `python-3.6.9`
+- `python-2.7.16`
+
+## Tests
+
+The buildpack tests use [Docker](https://www.docker.com/) to simulate
+Heroku's [stack images.](https://devcenter.heroku.com/articles/stack)
+
+To run the test suite:
+
+```
+make test
+```
+
+Or to test in a particular stack:
+
+```
+make test-heroku-18
+make test-heroku-16
+```
+
+The tests are run via the vendored
+[shunit2](https://github.com/kward/shunit2)
+test framework.

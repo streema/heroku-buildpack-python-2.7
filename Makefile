@@ -1,62 +1,55 @@
 # These targets are not files
-.PHONY: lint lint-scripts lint-ruby compile builder-image buildenv deploy-runtimes publish
+.PHONY: tests
 
-STACK ?= heroku-20
-STACKS ?= heroku-16 heroku-18 heroku-20
-FIXTURE ?= spec/fixtures/python_version_unspecified
-ENV_FILE ?= builds/dockerenv.default
-BUILDER_IMAGE_PREFIX := heroku-python-build
+test: test-heroku-18 test-heroku-16 test-cedar-14
 
-# Converts a stack name of `heroku-NN` to its build Docker image tag of `heroku/heroku:NN-build`.
-STACK_IMAGE_TAG := heroku/$(subst -,:,$(STACK))-build
-
-lint: lint-scripts lint-ruby
-
-lint-scripts:
+check:
 	@shellcheck -x bin/compile bin/detect bin/release bin/test-compile bin/utils bin/warnings bin/default_pythons
-	@shellcheck -x bin/steps/collectstatic bin/steps/eggpath-fix  bin/steps/eggpath-fix2 bin/steps/nltk bin/steps/pip-install bin/steps/pipenv bin/steps/pipenv-python-version bin/steps/python
+	@shellcheck -x bin/steps/collectstatic bin/steps/eggpath-fix  bin/steps/eggpath-fix2 bin/steps/gdal bin/steps/geo-libs bin/steps/mercurial bin/steps/nltk bin/steps/pip-install bin/steps/pip-uninstall bin/steps/pipenv bin/steps/pipenv-python-version bin/steps/pylibmc bin/steps/python
 	@shellcheck -x bin/steps/hooks/*
 
-lint-ruby:
-	@bundle exec rubocop
+test-cedar-14:
+	@echo "Running tests in docker (cedar-14)..."
+	@docker run -v $(shell pwd):/buildpack:ro --rm -it -e "STACK=cedar-14" heroku/cedar:14 bash -c 'cp -r /buildpack /buildpack_test; cd /buildpack_test/; test/run-deps; test/run-features; test/run-versions;'
+	@echo ""
 
-compile:
-	@echo "Running compile using: STACK=$(STACK) FIXTURE=$(FIXTURE)"
-	@echo
-	@docker run --rm -it -v $(PWD):/src:ro -e "STACK=$(STACK)" -w /buildpack "$(STACK_IMAGE_TAG)" \
-		bash -c 'cp -r /src/{bin,vendor} /buildpack && cp -r /src/$(FIXTURE) /build && mkdir /cache /env && bin/compile /build /cache /env'
-	@echo
+test-heroku-16:
+	@echo "Running tests in docker (heroku-16)..."
+	@docker run -v $(shell pwd):/buildpack:ro --rm -it -e "STACK=heroku-16" heroku/heroku:16-build bash -c 'cp -r /buildpack /buildpack_test; cd /buildpack_test/; test/run-deps; test/run-features; test/run-versions;'
+	@echo ""
 
-builder-image:
-	@echo "Generating binary builder image for $(STACK)..."
-	@echo
-	@docker build --pull -f builds/$(STACK).Dockerfile -t "$(BUILDER_IMAGE_PREFIX)-$(STACK)" .
-	@echo
+test-heroku-18:
+	@echo "Running tests in docker (heroku-18)..."
+	@docker run -v $(shell pwd):/buildpack:ro --rm -it -e "STACK=heroku-18" heroku/heroku:18-build bash -c 'cp -r /buildpack /buildpack_test; cd /buildpack_test/; test/run-deps; test/run-features; test/run-versions;'
+	@echo ""
 
-buildenv: builder-image
-	@echo "Starting build environment for $(STACK)..."
+buildenv-heroku-16:
+	@echo "Creating build environment (heroku-16)..."
+	@echo
+	@docker build --pull -f $(shell pwd)/builds/heroku-16.Dockerfile -t python-buildenv-heroku-16 .
 	@echo
 	@echo "Usage..."
 	@echo
-	@echo "  $$ bob build runtimes/python-X.Y.Z"
+	@echo "  $$ export AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar  # Optional unless deploying"
+	@echo "  $$ bob build runtimes/python-2.7.13"
+	@echo "  $$ bob deploy runtimes/python-2.7.13"
 	@echo
-	@docker run --rm -it --env-file="$(ENV_FILE)" -v $(PWD)/builds:/app/builds "$(BUILDER_IMAGE_PREFIX)-$(STACK)" bash
+	@docker run -it --rm python-buildenv-heroku-16
 
-deploy-runtimes:
-ifndef RUNTIMES
-	$(error No runtimes specified! Use: "make deploy-runtimes RUNTIMES='python-X.Y.Z ...' [STACKS='heroku-18 ...'] [ENV_FILE=...]")
-endif
-	@echo "Using: RUNTIMES='$(RUNTIMES)' STACKS='$(STACKS)' ENV_FILE='$(ENV_FILE)'"
+buildenv-heroku-18:
+	@echo "Creating build environment (heroku-18)..."
 	@echo
-	@set -eu; for stack in $(STACKS); do \
-		$(MAKE) builder-image STACK=$${stack}; \
-		for runtime in $(RUNTIMES); do \
-			echo "Generating/deploying $${runtime} for $${stack}..."; \
-			echo; \
-			docker run --rm -it --env-file="$(ENV_FILE)" "$(BUILDER_IMAGE_PREFIX)-$${stack}" bob deploy "runtimes/$${runtime}"; \
-			echo; \
-		done; \
-	done
+	@docker build --pull -f $(shell pwd)/builds/heroku-18.Dockerfile -t python-buildenv-heroku-18 .
+	@echo
+	@echo "Usage..."
+	@echo
+	@echo "  $$ export AWS_ACCESS_KEY_ID=foo AWS_SECRET_ACCESS_KEY=bar  # Optional unless deploying"
+	@echo "  $$ bob build runtimes/python-2.7.13"
+	@echo "  $$ bob deploy runtimes/python-2.7.13"
+	@echo
+	@docker run -it --rm python-buildenv-heroku-18
 
-publish:
-	@etc/publish.sh
+tools:
+	git clone https://github.com/kennethreitz/pip-pop.git
+	mv pip-pop/bin/* vendor/pip-pop/
+	rm -fr pip-pop
